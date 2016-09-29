@@ -5,7 +5,7 @@ require 'csv'
 require 'fileutils'
 require "shorturl"
 
-# Kōfu (or Miner in Japanese) of Travis repositories
+# Kōfu (or Miner in Japanese) -- Travis CI dataset Miner
 class Kofu
   VERSION = '0.0.1'
   API     = "https://api.github.com/repos/"
@@ -101,7 +101,7 @@ class Kofu
       build[:branch]     = line[:git_branch]  
             
       build[:commiturl]  = Kofu.shorten("#{API}#{repository}#{COMMITS}#{build[:commit]}")
-      build[:log]        = Kofu.shorten("#{TRAVIS}#{build[:jobid]}#{LOGS}")
+      build[:buildurl]   = Kofu.shorten("#{TRAVIS}#{build[:jobid]}#{LOGS}")
       
       if repos[repository].any?
         
@@ -109,14 +109,14 @@ class Kofu
         head  = build[:commit]        
         
         # compare the previous commit to this new one
-        build[:patch] = Kofu.compare(repository, base, head)
+        build[:patchurl] = Kofu.compare(repository, base, head)
       else
         
         base          = build[:branch]
         head          = build[:commit]        
         
         # compare the branch to this new commit
-        build[:patch] = Kofu.compare(repository, base, head)
+        build[:patchurl] = Kofu.compare(repository, base, head)
       end
                     
       repos[repository].push(build)
@@ -134,9 +134,7 @@ class Kofu
 
         records[repository].push(repos[repository])
       
-        repos.delete(repository)
-        
-        return records
+        repos.delete(repository)        
       end
     end
     
@@ -244,6 +242,6 @@ end
 
 if __FILE__ == $0
   
-  Kofu.dump(Kofu.process('data.csv'), true)
+  Kofu.dump(Kofu.process('data.csv'))
 
 end
