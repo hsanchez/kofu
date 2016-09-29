@@ -87,7 +87,7 @@ class Kofu
         end
       end        
       
-      build[:build]  = Kofu.valueOrElse(line[:tr_build_id])
+      build[:build]  = Kofu.ensure_value(line[:tr_build_id])
       build[:jobid]  = line[:tr_job_id] # useful for building log url 
       build[:status] = line[:tr_status] 
       
@@ -95,7 +95,7 @@ class Kofu
       # is a canceled status
       next if build[:status] == CANCELED
       
-      build[:started]    = Kofu.valueOrElse(line[:tr_started_at])
+      build[:started]    = Kofu.ensure_value(line[:tr_started_at])
       build[:lang]       = line[:gh_lang]
       build[:commit]     = line[:git_commit]   
       build[:branch]     = line[:git_branch]  
@@ -236,7 +236,7 @@ class Kofu
   # Private: Ensure nil string values are blank values.
   #
   # Returns Either a blank value or a non nil string value
-  def self.valueOrElse(value, orElse = "")
+  def self.ensure_value(value, orElse = "")
     value.nil? ? orElse : value
   end
   
