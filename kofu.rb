@@ -53,7 +53,7 @@ class Kofu
   # Public: Process a CSV file and then returns an array of records
   # @param filename name of csv file
   # Returns an array of records indexed by repository name
-  def self.process(filename)
+  def self.process(filename, patterns = false)
     # hash consisting of an array of arrays
     records = Hash.new
     file    = File.join(File.dirname(__FILE__), filename)
@@ -62,7 +62,7 @@ class Kofu
     
     repos = Hash.new
     
-    if DEBUG
+    if patterns
       entry = []
     end
     
@@ -79,7 +79,7 @@ class Kofu
         
         visited.push(repository)
         
-        if DEBUG
+        if patterns
           if entry.size > 1
             puts "#{entry}"
             entry.clear
@@ -121,7 +121,7 @@ class Kofu
                     
       repos[repository].push(build)
       
-      if DEBUG
+      if patterns
         entry.push(build[:status][0,1])
       end
             
@@ -241,7 +241,12 @@ class Kofu
 end
 
 if __FILE__ == $0
-  
-  Kofu.dump(Kofu.process('data.csv'))
+  patterns = !ARGV[0].nil? and ARGV[0] == "patterns"
+    
+  if patterns
+    Kofu.process('data.csv', true)
+  else
+    Kofu.dump(Kofu.process('data.csv'))
+  end
 
 end
