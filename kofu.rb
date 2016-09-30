@@ -3,7 +3,7 @@
 
 require 'csv'
 require 'fileutils'
-require "shorturl"
+require 'optparse'
 
 # Kōfu (or Miner in Japanese) -- Travis CI dataset Miner
 class Kofu
@@ -18,21 +18,7 @@ class Kofu
   DEBUG   = false
   
   PASSED    = "passed"
-  CANCELED  = "canceled"
-  
-  # Public:
-  # Returns the diff between two commits
-  def self.compare(repository, base, head)
-    url       = "#{API}#{repository}#{COMPARE}#{base}...#{head}"
-    Kofu.shorten(url)
-    # username  = repository[0..repository.rindex('/') - 1]
-    #
-    # http = Curl::Easy.perform(url) do |curl|
-    #   curl.headers["User-Agent"] = username
-    #   curl.verbose = true
-    # end
-    # http.body_str
-  end  
+  CANCELED  = "canceled" 
   
   # Public: It dumps the collected records to either the screen
   # or a file named results.csv (default behavior).
@@ -53,7 +39,7 @@ class Kofu
   # Public: Process a CSV file and then returns an array of records
   # @param filename name of csv file
   # Returns an array of records indexed by repository name
-  def self.process(filename, patterns = false)
+  def self.process(filename, verbose = false)
     # hash consisting of an array of arrays
     records = Hash.new
     file    = File.join(File.dirname(__FILE__), filename)
@@ -62,13 +48,28 @@ class Kofu
     
     repos = Hash.new
     
-    if patterns
+    if verbose
       entry = []
+      stats = Hash.new
+      stats[:java]  = Hash.new
+      stats[:ruby]  = Hash.new
+      
+      stats[:java][:count]  = 0
+      stats[:ruby][:count]  = 0
+      
+      stats[:java][:size] = []
+      stats[:ruby][:size] = []
+      
+      stats[:total] = 0
     end
     
     CSV.foreach(file, :headers => true, :header_converters => :symbol) do |line|      
       build       = Hash.new
-      repository  = line[:gh_project_name]    
+      repository  = line[:gh_project_name]  
+      
+      if verbose
+        stats[:total] += 1
+      end
     
       if !visited.include?(repository)
         repos[repository]  = []
@@ -79,9 +80,9 @@ class Kofu
         
         visited.push(repository)
         
-        if patterns
+        if verbose
           if entry.size > 1
-            puts "#{entry}"
+            puts "#{entry.size}: #{entry}"
             entry.clear
           end
         end
@@ -100,8 +101,8 @@ class Kofu
       build[:commit]     = line[:git_commit]   
       build[:branch]     = line[:git_branch]  
             
-      build[:commiturl]  = Kofu.shorten("#{API}#{repository}#{COMMITS}#{build[:commit]}")
-      build[:buildurl]   = Kofu.shorten("#{TRAVIS}#{build[:jobid]}#{LOGS}")
+      build[:commiturl]  = "#{API}#{repository}#{COMMITS}#{build[:commit]}"
+      build[:buildurl]   = "#{TRAVIS}#{build[:jobid]}#{LOGS}"
       
       if repos[repository].any?
         
@@ -109,23 +110,33 @@ class Kofu
         head  = build[:commit]        
         
         # compare the previous commit to this new one
-        build[:patchurl] = Kofu.compare(repository, base, head)
+        build[:patchurl] = "#{API}#{repository}#{COMPARE}#{base}...#{head}"
       else
         
         base          = build[:branch]
         head          = build[:commit]        
         
         # compare the branch to this new commit
-        build[:patchurl] = Kofu.compare(repository, base, head)
+        build[:patchurl] = "#{API}#{repository}#{COMPARE}#{base}...#{head}"
       end
                     
       repos[repository].push(build)
       
-      if patterns
+      if verbose
         entry.push(build[:status][0,1])
       end
             
-      if build[:status] == PASSED          
+      if build[:status] == PASSED   
+        
+        if verbose
+          stats[:java][:count] += 1 if build[:lang] == "java"
+          stats[:ruby][:count] += 1 if build[:lang] == "ruby"  
+          
+          stats[:java][:size].push(entry.size) if build[:lang] == "java"
+          stats[:ruby][:size].push(entry.size) if build[:lang] == "ruby"
+                  
+        end
+               
         visited.delete(repository)
       
         if !records.key?(repository)
@@ -141,18 +152,23 @@ class Kofu
     if DEBUG
       puts "collected #{records.size} records"
     end
+    
+    if verbose
+      stats.each do |k, v|
+        next if k == :total
+        
+        puts "For #{k}:"
+        puts "Number of patterns: #{v[:count]} -- #{v[:count].to_f/stats[:total]} of #{stats[:total]} records"
+        
+        sorted = v[:size].sort
+        puts "patterns size:"
+        puts "min: #{sorted.first}, avg: #{sorted.inject{ |sum, el| sum + el }.to_f / sorted.size}, max: #{sorted.last}"
+      end
+    end
   
     # [repo_0: [data, data], repo_1: [data, data], ..., repo_N: [data, data]]
     records
   end
-  
-  def self.shorten(url)
-    if url.nil?
-      raise ArgumentError.new("Only non nullable arguments are allowed")
-    end
-    
-    ShortURL.shorten(url)
-  end 
   
   # Internal: Prints all collected records to screen
   #
@@ -240,13 +256,45 @@ class Kofu
   
 end
 
+
 if __FILE__ == $0
-  patterns = !ARGV[0].nil? and ARGV[0] == "patterns"
+  
+  options = {}  
+  
+  kofu = OptionParser.new do |opt|
+    opt.banner = "Usage: kofu COMMAND [OPTIONS]"
+    opt.separator  ""
+    opt.separator  "Commands"
+    opt.separator  "     process: process csv file"
+    opt.separator  ""
+    opt.separator  "Options"
     
-  if patterns
-    Kofu.process('data.csv', true)
-  else
-    Kofu.dump(Kofu.process('data.csv'))
+    opt.on("-f","--file FILE","the csv file to process") do |file|
+      options[:file] = file 
+    end
+  
+    opt.on("-p","--patterns","disclose build attempt patterns") do
+      options[:patterns] = true
+    end
+  
+    opt.on("-h","--help","help") do 
+      puts kofu
+    end
   end
+  
+  kofu.parse!
+  
+  case ARGV[0]
+   when "process"
+     file = options[:file].nil? ? 'data.csv' : options[:file]     
+     
+     if options[:patterns].nil?
+       Kofu.dump(Kofu.process(file))
+     else
+       Kofu.process(file, options[:patterns])
+     end
+    else
+      puts kofu
+    end
 
 end
