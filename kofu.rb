@@ -46,6 +46,10 @@ class Kofu
     
     visited = []
     
+    unless verbose
+      puts "Processing #{filename} ... This will take a few minutes."
+    end
+    
     repos = Hash.new
     
     if verbose
@@ -286,12 +290,17 @@ if __FILE__ == $0
   
   case ARGV[0]
    when "process"
-     file = options[:file].nil? ? 'data.csv' : options[:file]     
-     
-     if options[:patterns].nil?
-       Kofu.dump(Kofu.process(file))
+     if options[:file].nil? and options[:patterns].nil?
+       puts "at least one option is required!"
+       puts kofu
      else
-       Kofu.process(file, options[:patterns])
+       file = options[:file].nil? ? 'data.csv' : options[:file]     
+     
+       if options[:patterns].nil?
+         Kofu.dump(Kofu.process(file))
+       else
+         Kofu.process(file, options[:patterns])
+       end
      end
     else
       puts kofu
