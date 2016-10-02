@@ -4,6 +4,7 @@
 require 'csv'
 require 'fileutils'
 require 'optparse'
+require 'descriptive_statistics'
 
 # Kōfu (or Miner in Japanese) -- Travis CI dataset Miner
 class Kofu
@@ -86,7 +87,7 @@ class Kofu
         
         if verbose
           if entry.size > 1
-            puts "#{entry.size}: #{entry}"
+            puts "#{entry}"
             entry.clear
           end
         end
@@ -136,8 +137,10 @@ class Kofu
           stats[:java][:count] += 1 if build[:lang] == "java"
           stats[:ruby][:count] += 1 if build[:lang] == "ruby"  
           
-          stats[:java][:size].push(entry.size) if build[:lang] == "java"
-          stats[:ruby][:size].push(entry.size) if build[:lang] == "ruby"
+          if entry.size > 1
+            stats[:java][:size].push(entry.size) if build[:lang] == "java"
+            stats[:ruby][:size].push(entry.size) if build[:lang] == "ruby"
+          end
                   
         end
                
@@ -158,15 +161,22 @@ class Kofu
     end
     
     if verbose
+      total_recs = stats[:total]
+      puts "Number of processed records: #{total_recs}"
+      
       stats.each do |k, v|
         next if k == :total
+      
+        puts "Number of #{k} ([errored|failed]+[passed]) patterns: #{v[:count]}"
+        puts "(Additional) details:"
+        puts "Basic stats using the size of collected patterns:"
         
-        puts "For #{k}:"
-        puts "Number of patterns: #{v[:count]} -- #{v[:count].to_f/stats[:total]} of #{stats[:total]} records"
+        mean = ("%.2f" % v[:size].mean).to_f
+        min  = v[:size].min
+        max  = v[:size].max
+        stdv = v[:size].standard_deviation
         
-        sorted = v[:size].sort
-        puts "patterns size:"
-        puts "min: #{sorted.first}, avg: #{sorted.inject{ |sum, el| sum + el }.to_f / sorted.size}, max: #{sorted.last}"
+        puts "min: #{min}, mean: #{mean}, max: #{max}, stdv: #{stdv}"
       end
     end
   
@@ -303,6 +313,7 @@ if __FILE__ == $0
        end
      end
     else
+      puts "command expected!!"
       puts kofu
     end
 
