@@ -7,7 +7,9 @@ require 'optparse'
 require 'descriptive_statistics'
 
 # Kōfu (or Miner in Japanese) -- Travis CI dataset Miner
-class Kofu
+module Kofu 
+  extend self
+  
   VERSION = '0.0.1'
   API     = "https://api.github.com/repos/"
   COMMITS = "/git/commits/"
@@ -28,7 +30,7 @@ class Kofu
   # to_file   - prints results to a file named results.csv
   #
   # Returns the records instance (useful for post processing)
-  def self.dump(records, to_file = false)
+  def dump(records, to_file = false)
     if to_file
       Kofu.to_csv(records)
     else
@@ -40,7 +42,7 @@ class Kofu
   # Public: Process a CSV file and then returns an array of records
   # @param filename name of csv file
   # Returns an array of records indexed by repository name
-  def self.process(filename, verbose = false)
+  def process(filename, verbose = false)
     # hash consisting of an array of arrays
     records = Hash.new
     file    = File.join(File.dirname(__FILE__), filename)
@@ -191,7 +193,7 @@ class Kofu
   # e.g., record A = [snapshot1,..., snapshotN] and 
   # snapshot1 = [build1, ..., buildN]
   #
-  def self.to_screen(records)
+  def to_screen(records)
     
     header    = false
     headers   = []
@@ -226,7 +228,7 @@ class Kofu
   # filename - name of file
   #
   # Returns nothing
-  def self.to_csv(records, filename = 'result.csv')
+  def to_csv(records, filename = 'result.csv')
     header    = false
     headers   = []
 
@@ -264,57 +266,8 @@ class Kofu
   # Private: Ensure nil string values are blank values.
   #
   # Returns Either a blank value or a non nil string value
-  def self.ensure_value(value, orElse = "")
+  def ensure_value(value, orElse = "")
     value.nil? ? orElse : value
   end
   
-end
-
-
-if __FILE__ == $0
-  
-  options = {}  
-  
-  kofu = OptionParser.new do |opt|
-    opt.banner = "Usage: kofu COMMAND [OPTIONS]"
-    opt.separator  ""
-    opt.separator  "Commands"
-    opt.separator  "     process: process csv file"
-    opt.separator  ""
-    opt.separator  "Options"
-    
-    opt.on("-f","--file FILE","the csv file to process") do |file|
-      options[:file] = file 
-    end
-  
-    opt.on("-p","--patterns","disclose build attempt patterns") do
-      options[:patterns] = true
-    end
-  
-    opt.on("-h","--help","help") do 
-      puts kofu
-    end
-  end
-  
-  kofu.parse!
-  
-  case ARGV[0]
-   when "process"
-     if options[:file].nil? and options[:patterns].nil?
-       puts "at least one option is required!"
-       puts kofu
-     else
-       file = options[:file].nil? ? 'data.csv' : options[:file]     
-     
-       if options[:patterns].nil?
-         Kofu.dump(Kofu.process(file))
-       else
-         Kofu.process(file, options[:patterns])
-       end
-     end
-    else
-      puts "command expected!!"
-      puts kofu
-    end
-
 end
