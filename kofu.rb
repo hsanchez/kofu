@@ -42,12 +42,14 @@ module Kofu
   # Public: Process a CSV file and then returns an array of records
   # @param filename name of csv file
   # Returns an array of records indexed by repository name
-  def process(filename, verbose = false)
+  def process(filename, lang, verbose = false)
     # hash consisting of an array of arrays
     records = Hash.new
     file    = File.join(File.dirname(__FILE__), filename)
     
     visited = []
+        
+    branches = Hash.new
     
     unless verbose
       puts "Processing #{filename} ... This will take a few minutes."
@@ -74,88 +76,112 @@ module Kofu
       build       = Hash.new
       repository  = line[:gh_project_name]  
       
+      build[:branch]  = line[:git_branch]
+      build[:lang]    = line[:gh_lang]      
+      
+      next if build[:lang] != lang && lang != "all"
+      
       if verbose
         stats[:total] += 1
       end
-    
-      if !visited.include?(repository)
-        repos[repository]  = []
+      
+      key = {
+        name:   repository, 
+        branch: build[:branch]
+      }
+      
+      # puts key
+      # print "Not seen before? #{!visited.include?(key)} == true"
+      # print ":["
+      # puts "Nil repos? #{repos[repository].nil?}"
+          
+      if !visited.include?(key) # repository
+        
+        repos[key]  = []
+        # print "Initiated"
+        # print "]"
+        # puts ""
         
         # Skip first status of a build if that status
         # is a passed status
         next if line[:tr_status] == PASSED
         
-        visited.push(repository)
+        visited.push(key)
         
         if verbose
-          if entry.size > 1
+          if entry.size > 1 && entry.include?("p")
             puts "#{entry}"
             entry.clear
           end
         end
-      end        
+      # else
+      #   print "Initiated"
+      #   print "]"
+      #   puts ""
+      end 
       
+      # puts "Nil repos? #{repos[repository].nil?}"
+    
       build[:build]  = Kofu.ensure_value(line[:tr_build_id])
       build[:jobid]  = line[:tr_job_id] # useful for building log url 
       build[:status] = line[:tr_status] 
-      
+    
       # Ignores status of a build if that status
       # is a canceled status
       next if build[:status] == CANCELED
-      
+    
       build[:started]    = Kofu.ensure_value(line[:tr_started_at])
-      build[:lang]       = line[:gh_lang]
-      build[:commit]     = line[:git_commit]   
-      build[:branch]     = line[:git_branch]  
-            
+      build[:commit]     = line[:git_commit]     
+          
       build[:commiturl]  = "#{API}#{repository}#{COMMITS}#{build[:commit]}"
       build[:buildurl]   = "#{TRAVIS}#{build[:jobid]}#{LOGS}"
+    
+      if repos[key].any?
       
-      if repos[repository].any?
-        
-        base  = repos[repository][-1][:commit]
+        base  = repos[key][-1][:commit]
         head  = build[:commit]        
-        
+      
         # compare the previous commit to this new one
         build[:patchurl] = "#{API}#{repository}#{COMPARE}#{base}...#{head}"
       else
-        
+      
         base          = build[:branch]
         head          = build[:commit]        
-        
+      
         # compare the branch to this new commit
         build[:patchurl] = "#{API}#{repository}#{COMPARE}#{base}...#{head}"
       end
-                    
-      repos[repository].push(build)
-      
+                        
+      repos[key].push(build)
+    
       if verbose
         entry.push(build[:status][0,1])
       end
-            
+          
       if build[:status] == PASSED   
-        
+      
         if verbose
           stats[:java][:count] += 1 if build[:lang] == "java"
           stats[:ruby][:count] += 1 if build[:lang] == "ruby"  
-          
+        
           if entry.size > 1
             stats[:java][:size].push(entry.size) if build[:lang] == "java"
             stats[:ruby][:size].push(entry.size) if build[:lang] == "ruby"
           end
-                  
+                
         end
-               
-        visited.delete(repository)
-      
-        if !records.key?(repository)
-          records[repository] = []        
+             
+        visited.delete(key)
+    
+        if !records.key?(key)
+          records[key] = []        
         end
 
-        records[repository].push(repos[repository])
-      
-        repos.delete(repository)        
+        records[key].push(repos[key])
+    
+        repos.delete(key)        
       end
+      
     end
     
     if DEBUG
