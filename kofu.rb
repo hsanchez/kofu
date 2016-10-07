@@ -195,31 +195,31 @@ module Kofu
     end 
     
     def overview
-      "Nothing to report" unless @verbose
+      if @verbose
+        total_recs = @stats[:total]
+        puts "Number of processed records: #{total_recs}"
       
-      total_recs = @stats[:total]
-      puts "Number of processed records: #{total_recs}"
-      
-      @stats.each do |k, v|
-        next if k == :total
-        next if v[:size].empty?
+        @stats.each do |k, v|
+          next if k == :total
+          next if v[:size].empty?
         
-        if !v[:size].empty?
+          if !v[:size].empty?
               
-          puts "Number of #{k} ([errored|failed]+[passed]) patterns: #{v[:count]}"
-          puts "(Additional) details:"
-          puts "Basic stats using the size of collected patterns:"
+            puts "Number of #{k} ([errored|failed]+[passed]) patterns: #{v[:count]}"
+            puts "(Additional) details:"
+            puts "Basic stats using the size of collected patterns:"
           
-          mean = ("%.2f" % v[:size].mean).to_f
-          min  = v[:size].min
-          max  = v[:size].max
-          stdv = v[:size].standard_deviation
+            mean = ("%.2f" % v[:size].mean).to_f
+            min  = v[:size].min
+            max  = v[:size].max
+            stdv = v[:size].standard_deviation
         
-          puts "min: #{min}, mean: #{mean}, max: #{max}, stdv: #{stdv}"
+            puts "min: #{min}, mean: #{mean}, max: #{max}, stdv: #{stdv}"
+          end
         end
-      end
-      
-      
+      else
+        puts "Nothing to report"
+      end  
     end
     
     def failed (line)      

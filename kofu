@@ -28,6 +28,10 @@ if __FILE__ == $0
     opt.on("-p","--patterns","disclose build attempt patterns") do
       options[:patterns] = true
     end
+    
+    opt.on("-s","--screen","target programing language (either ruby or java)") do
+      options[:screen] = true 
+    end
   
     opt.on("-h","--help","help") do 
       puts kofu
@@ -46,7 +50,8 @@ if __FILE__ == $0
        lang = options[:lang].nil? ? 'all' : options[:lang]
      
        if options[:patterns].nil?
-         Kofu.dump(Kofu.process(file, lang))
+         tofile = options[:screen].nil? || !options[:screen]  
+         Kofu.dump(Kofu.process(file, lang), tofile)
        else
          Kofu.process(file, lang, options[:patterns])
        end
