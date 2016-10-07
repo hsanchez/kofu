@@ -17,12 +17,20 @@ if __FILE__ == $0
     opt.separator  ""
     opt.separator  "Options"
     
+    opt.on("-l","--lang LANG","target programing language (either ruby or java)") do |lang|
+      options[:lang] = lang 
+    end
+    
     opt.on("-f","--file FILE","the csv file to process") do |file|
       options[:file] = file 
     end
   
     opt.on("-p","--patterns","disclose build attempt patterns") do
       options[:patterns] = true
+    end
+    
+    opt.on("-s","--screen","dumps collected records to screen") do
+      options[:screen] = true 
     end
   
     opt.on("-h","--help","help") do 
@@ -38,12 +46,14 @@ if __FILE__ == $0
        puts "at least one option is required!"
        puts kofu
      else
-       file = options[:file].nil? ? 'data.csv' : options[:file]     
+       file = options[:file].nil? ? 'data.csv' : options[:file] 
+       lang = options[:lang].nil? ? 'all' : options[:lang]
      
        if options[:patterns].nil?
-         Kofu.dump(Kofu.process(file))
+         tofile = options[:screen].nil? || !options[:screen]  
+         Kofu.dump(Kofu.process(file, lang), tofile)
        else
-         Kofu.process(file, options[:patterns])
+         Kofu.process(file, lang, options[:patterns])
        end
      end
     else
