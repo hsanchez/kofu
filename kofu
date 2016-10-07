@@ -29,7 +29,7 @@ if __FILE__ == $0
       options[:patterns] = true
     end
     
-    opt.on("-s","--screen","target programing language (either ruby or java)") do
+    opt.on("-s","--screen","dumps collected records to screen") do
       options[:screen] = true 
     end
   
