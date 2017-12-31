@@ -1,10 +1,11 @@
 #!/usr/bin/ruby
-# Copyright Huascar Sanchez, 2016. 
+# Copyright Huascar Sanchez, 2018. 
 
 require 'csv'
 require 'fileutils'
 require 'optparse'
 require 'descriptive_statistics'
+require 'progress_bar'
 
 # Kōfu (or Miner in Japanese) -- Travis CI dataset Miner
 module Kofu 
@@ -138,15 +139,26 @@ module Kofu
         branch: build[:branch]
       }
       
-      build[:build]  = Kofu.ensure_value(line[:tr_build_id])
-      build[:jobid]  = line[:tr_job_id] # useful for building log url 
-      build[:status] = line[:tr_status]
+      build[:build]       = Kofu.ensure_value(line[:tr_build_id])
+      build[:jobid]       = line[:tr_job_id] # useful for building log url 
+      build[:status]      = line[:tr_status]
+      build[:log_status]  = line[:tr_log_status]
       
-      build[:started]    = Kofu.ensure_value(line[:tr_started_at])
-      build[:commit]     = line[:git_commit]     
+      build[:started]    = Kofu.ensure_value(line[:gh_build_started_at])
+      build[:commit]     = line[:git_trigger_commit]
           
       build[:commiturl]  = "#{API}#{build[:project]}#{COMMITS}#{build[:commit]}"
       build[:buildurl]   = "#{TRAVIS}#{build[:jobid]}#{LOGS}"
+      
+      build[:team_size]             = line[:gh_team_size]
+      build[:is_trusted_member]     = line[:gh_by_core_team_member]
+      build[:is_pull_request]       = line[:gh_is_pr]
+      build[:merged_with]           = line[:git_merged_with]
+      build[:num_pr_comments]       = line[:gh_num_pr_comments]
+      build[:num_issue_comments]    = line[:gh_num_issue_comments]
+      build[:num_commit_comments]   = line[:gh_num_commit_comments]
+      build[:log_num_tests_failed]  = line[:tr_log_num_tests_failed]
+      
       
       if @keys[key].any?
       
@@ -192,7 +204,7 @@ module Kofu
         
       end
       
-    end 
+    end
     
     def overview
       if @verbose
@@ -218,7 +230,7 @@ module Kofu
           end
         end
       else
-        puts "Nothing to report"
+        puts "\nNothing to report"
       end  
     end
     
@@ -262,11 +274,25 @@ module Kofu
       puts "Processing #{filename} ... This will take a few minutes."
     end
     
+    # lines of text
+    lot = [(File.read(file).each_line.count - 1), 0].max
+    progress = ProgressBar.new(lot, :counter, :percentage, :elapsed)
+    
+    force_new_line = false
     
     monitor = Monitor.new(lang, verbose)
             
     CSV.foreach(file, :headers => true, :header_converters => :symbol) do |line| 
 
+      progress.increment!
+      
+      # HACK: progress bar does not perform 'carriage return' after 
+      # printing progress. Consequently, we have to force that new line.
+      if !force_new_line 
+        puts "\n"
+        force_new_line = true
+      end
+      
       next if monitor.skip(line)
       
       begin
