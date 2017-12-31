@@ -1,5 +1,6 @@
 -- MySQL query
 -- Copyright Huascar Sanchez, 2017.
+-- BigQuery: https://travistorrent.testroots.org/page_access/
 
 -- V.0
 -- SELECT DISTINCT
